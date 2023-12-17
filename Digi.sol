@@ -857,24 +857,6 @@ contract DIGIVERSE is Context, IERC20, Ownable {
 
     /////---fallback--////
     //This cannot be removed as is a fallback to the swapAndLiquify
-    event SwapETHForTokens(uint256 amountIn, address[] path);
-
-    function swapETHForTokens(uint256 amount) private {
-        // generate the uniswap pair path of token -> weth
-        address[] memory path = new address[](2);
-        path[0] = WETH;
-        path[1] = address(this);
-        // make the swap
-        uniswapV2Router.swapExactETHForTokensSupportingFeeOnTransferTokens{
-            value: amount
-        }(
-            swapOutput, // accept any amount of Tokens
-            path,
-            deadWallet, // Burn address
-            block.timestamp + 300
-        );
-        emit SwapETHForTokens(amount, path);
-    }
 
     // Withdraw ETH that's potentially stuck in the Contract
     function recoverETHfromContract() external onlyOwner {
