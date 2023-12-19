@@ -1,6 +1,3 @@
-/**
- *Submitted for verification at BscScan.com on 2023-12-05
-*/
 
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.19;
@@ -113,6 +110,240 @@ library Address {
         );
     }
 
+    /**
+     * @dev Performs a Solidity function call using a low level `call`. A
+     * plain `call` is an unsafe replacement for a function call: use this
+     * function instead.
+     *
+     * If `target` reverts with a revert reason, it is bubbled up by this
+     * function (like regular Solidity function calls).
+     *
+     * Returns the raw returned data. To convert to the expected return value,
+     * use https://solidity.readthedocs.io/en/latest/units-and-global-variables.html?highlight=abi.decode#abi-encoding-and-decoding-functions[`abi.decode`].
+     *
+     * Requirements:
+     *
+     * - `target` must be a contract.
+     * - calling `target` with `data` must not revert.
+     *
+     * _Available since v3.1._
+     */
+    function functionCall(
+        address target,
+        bytes memory data
+    ) internal returns (bytes memory) {
+        return
+            functionCallWithValue(
+                target,
+                data,
+                0,
+                "Address: low-level call failed"
+            );
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`], but with
+     * `errorMessage` as a fallback revert reason when `target` reverts.
+     *
+     * _Available since v3.1._
+     */
+    function functionCall(
+        address target,
+        bytes memory data,
+        string memory errorMessage
+    ) internal returns (bytes memory) {
+        return functionCallWithValue(target, data, 0, errorMessage);
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+     * but also transferring `value` wei to `target`.
+     *
+     * Requirements:
+     *
+     * - the calling contract must have an ETH balance of at least `value`.
+     * - the called Solidity function must be `payable`.
+     *
+     * _Available since v3.1._
+     */
+    function functionCallWithValue(
+        address target,
+        bytes memory data,
+        uint256 value
+    ) internal returns (bytes memory) {
+        return
+            functionCallWithValue(
+                target,
+                data,
+                value,
+                "Address: low-level call with value failed"
+            );
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCallWithValue-address-bytes-uint256-}[`functionCallWithValue`], but
+     * with `errorMessage` as a fallback revert reason when `target` reverts.
+     *
+     * _Available since v3.1._
+     */
+    function functionCallWithValue(
+        address target,
+        bytes memory data,
+        uint256 value,
+        string memory errorMessage
+    ) internal returns (bytes memory) {
+        require(
+            address(this).balance >= value,
+            "Address: insufficient balance for call"
+        );
+        (bool success, bytes memory returndata) = target.call{value: value}(
+            data
+        );
+        return
+            verifyCallResultFromTarget(
+                target,
+                success,
+                returndata,
+                errorMessage
+            );
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+     * but performing a static call.
+     *
+     * _Available since v3.3._
+     */
+    function functionStaticCall(
+        address target,
+        bytes memory data
+    ) internal view returns (bytes memory) {
+        return
+            functionStaticCall(
+                target,
+                data,
+                "Address: low-level static call failed"
+            );
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],
+     * but performing a static call.
+     *
+     * _Available since v3.3._
+     */
+    function functionStaticCall(
+        address target,
+        bytes memory data,
+        string memory errorMessage
+    ) internal view returns (bytes memory) {
+        (bool success, bytes memory returndata) = target.staticcall(data);
+        return
+            verifyCallResultFromTarget(
+                target,
+                success,
+                returndata,
+                errorMessage
+            );
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+     * but performing a delegate call.
+     *
+     * _Available since v3.4._
+     */
+    function functionDelegateCall(
+        address target,
+        bytes memory data
+    ) internal returns (bytes memory) {
+        return
+            functionDelegateCall(
+                target,
+                data,
+                "Address: low-level delegate call failed"
+            );
+    }
+
+    /**
+     * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],
+     * but performing a delegate call.
+     *
+     * _Available since v3.4._
+     */
+    function functionDelegateCall(
+        address target,
+        bytes memory data,
+        string memory errorMessage
+    ) internal returns (bytes memory) {
+        (bool success, bytes memory returndata) = target.delegatecall(data);
+        return
+            verifyCallResultFromTarget(
+                target,
+                success,
+                returndata,
+                errorMessage
+            );
+    }
+
+    /**
+     * @dev Tool to verify that a low level call to smart-contract was successful, and revert (either by bubbling
+     * the revert reason or using the provided one) in case of unsuccessful call or if target was not a contract.
+     *
+     * _Available since v4.8._
+     */
+    function verifyCallResultFromTarget(
+        address target,
+        bool success,
+        bytes memory returndata,
+        string memory errorMessage
+    ) internal view returns (bytes memory) {
+        if (success) {
+            if (returndata.length == 0) {
+                // only check isContract if the call was successful and the return data is empty
+                // otherwise we already know that it was a contract
+                require(isContract(target), "Address: call to non-contract");
+            }
+            return returndata;
+        } else {
+            _revert(returndata, errorMessage);
+        }
+    }
+
+    /**
+     * @dev Tool to verify that a low level call was successful, and revert if it wasn't, either by bubbling the
+     * revert reason or using the provided one.
+     *
+     * _Available since v4.3._
+     */
+    function verifyCallResult(
+        bool success,
+        bytes memory returndata,
+        string memory errorMessage
+    ) internal pure returns (bytes memory) {
+        if (success) {
+            return returndata;
+        } else {
+            _revert(returndata, errorMessage);
+        }
+    }
+
+    function _revert(
+        bytes memory returndata,
+        string memory errorMessage
+    ) private pure {
+        // Look for revert reason and bubble it up if present
+        if (returndata.length > 0) {
+            // The easiest way to bubble the revert reason is using memory via assembly
+            /// @solidity memory-safe-assembly
+            assembly {
+                let returndata_size := mload(returndata)
+                revert(add(32, returndata), returndata_size)
+            }
+        } else {
+            revert(errorMessage);
+        }
+    }
 }
 
 /**
@@ -171,7 +402,7 @@ abstract contract Ownable is Context {
      * NOTE: Renouncing ownership will leave the contract without an owner,
      * thereby removing any functionality that is only available to the owner.
      */
-    function renounceOwnership() external virtual onlyOwner {
+    function renounceOwnership() public virtual onlyOwner {
         _transferOwnership(address(0));
     }
 
@@ -179,7 +410,7 @@ abstract contract Ownable is Context {
      * @dev Transfers ownership of the contract to a new account (`newOwner`).
      * Can only be called by the current owner.
      */
-    function transferOwnership(address newOwner) external virtual onlyOwner {
+    function transferOwnership(address newOwner) public virtual onlyOwner {
         require(
             newOwner != address(0),
             "Ownable: new owner is the zero address"
@@ -527,29 +758,29 @@ interface IUniswapV2Router02 is IUniswapV2Router01 {
     ) external;
 }
 
-contract DIGIVERSE is Context, IERC20, Ownable {
+contract DIGI is Context, IERC20, Ownable {
     using Address for address;
 
-    //Dead Wallet for SAFU Contract
-    address public constant deadWallet =
-        0x000000000000000000000000000000000000dEaD;
     //Mapping section for better tracking.
     mapping(address => uint256) private _tOwned;
     mapping(address => mapping(address => uint256)) private _allowances;
-    mapping(address => bool) private _noFeeWallet;
+    mapping(address => bool) private _isExcludedFromFee;
 
-    event TransferStatus(string,bool);
-    event UpdateDevOpsWallet(address);
+    //Loging and Event Information for better troubleshooting.
+    event Log(string, uint256);
+    event AuditLog(string, address);
+    event ExcludeStatus(address, bool);
+    event UpdateMarketingWallet(address);
     event UpdateStakingWallet(address);
     event UpdateTokensToSwap(uint256);
     event UpdateBuyFee(uint256);
     event UpdateSellFee(uint256);
+    event UpdateTransferFee(uint256);
     event TransferStatus(bool);
     event UpdateDistribution(uint256, uint256);
     event RecoveredETH(uint256);
     event RecoveredTokens(uint256);
     event TradingStarted(bool);
-    event ExcludeStatus(address,bool);
     event SwapAndLiquifyEnabledUpdated(bool enabled);
     event SwapAndLiquify(
         uint256 tokensSwapped,
@@ -567,18 +798,18 @@ contract DIGIVERSE is Context, IERC20, Ownable {
     //Definition of Wallets for Marketing or team.
     address payable public marketingWallet =
         payable(0xee518a1196898cBCE97d7F046bCE21ac05B593f8);
+
+    //Dead Wallet for SAFU Contract
+    address public constant deadWallet =
+        0x000000000000000000000000000000000000dEaD;
     //Taxes Definition.
     uint public buyFee = 2;
-
+    uint256 public transferFee = 2;
     uint256 public sellFee = 2;
 
     uint256 public marketingTokensCollected = 0;
-    uint256 public totalMarketingTokensCollected = 0;
 
     uint256 public minimumTokensBeforeSwap = 100_000 ether;
-
-    //Oracle Price Update, Manual Process.
-    uint256 public swapOutput = 0;
 
     //Router and Pair Configuration.
     IUniswapV2Router02 public immutable uniswapV2Router;
@@ -586,7 +817,7 @@ contract DIGIVERSE is Context, IERC20, Ownable {
     address private immutable WETH;
     //Tracking of Automatic Swap vs Manual Swap.
     bool public inSwapAndLiquify;
-    bool public swapAndLiquifyEnabled = false;
+    bool public swapAndLiquifyEnabled = true;
 
     modifier lockTheSwap() {
         inSwapAndLiquify = true;
@@ -594,43 +825,24 @@ contract DIGIVERSE is Context, IERC20, Ownable {
         inSwapAndLiquify = false;
     }
 
-    constructor() {
+    constructor(address currentRouter) {
         _tOwned[_msgSender()] = _tTotal;
-        address currentRouter;
-        //Adding Variables for all the routers for easier deployment for our customers.
-        if (block.chainid == 56) {
-            currentRouter = 0x10ED43C718714eb63d5aA57B78B54704E256024E; // PCS Router
-            _noFeeWallet[0x407993575c91ce7643a4d4cCACc9A98c36eE1BBE] = true;//PinkSale Lock
-        } else if (block.chainid == 97) {
-            currentRouter = 0xD99D1c33F9fC3444f8101754aBC46c52416550D1; // PCS Testnet
-            _noFeeWallet[0x5E5b9bE5fd939c578ABE5800a90C566eeEbA44a5] = true;//PinkSale Lock
-        } else if (block.chainid == 43114) {
-            currentRouter = 0x60aE616a2155Ee3d9A68541Ba4544862310933d4; //Avax Mainnet
-        } else if (block.chainid == 137) {
-            currentRouter = 0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff; //Polygon Ropsten
-        } else if (block.chainid == 6066) {
-            currentRouter = 0x4169Db906fcBFB8b12DbD20d98850Aee05B7D889; //Tres Leches Chain
-        } else if (block.chainid == 250) {
-            currentRouter = 0xF491e7B69E4244ad4002BC14e878a34207E38c29; //SpookySwap FTM
-        } else if (block.chainid == 42161) {
-            currentRouter = 0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506; //Arbitrum Sushi
-            _noFeeWallet[0xeBb415084Ce323338CFD3174162964CC23753dFD] = true;//PinkSale Lock
-        } else if (block.chainid == 1 || block.chainid == 5) {
-            currentRouter = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D; //Mainnet
-            _noFeeWallet[0x71B5759d73262FBb223956913ecF4ecC51057641] = true;//PinkSale Lock
-        } else {
-            revert("You're not Blade");
-        }
-
-        //End of Router Variables.
+        
+       
+     
         //Create Pair in the contructor, this may fail on some blockchains and can be done in a separate line if needed.
         IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(currentRouter);
         WETH = _uniswapV2Router.WETH();
         uniswapV2Pair = IUniswapV2Factory(_uniswapV2Router.factory())
             .createPair(address(this), WETH);
         uniswapV2Router = _uniswapV2Router;
-        _noFeeWallet[owner()] = true;
-        _noFeeWallet[address(this)] = true;
+
+        //Approve router to be used.
+        _approve(msg.sender, address(uniswapV2Router), type(uint256).max);
+        _approve(address(this), address(uniswapV2Router), type(uint256).max);
+        //Exclude from Fees
+        _isExcludedFromFee[owner()] = true;
+        _isExcludedFromFee[address(this)] = true;
 
         emit Transfer(address(0), _msgSender(), _tTotal);
     }
@@ -640,7 +852,6 @@ contract DIGIVERSE is Context, IERC20, Ownable {
         return _tTotal;
     }
 
-
     function balanceOf(address account) public view override returns (uint256) {
         return _tOwned[account];
     }
@@ -649,25 +860,24 @@ contract DIGIVERSE is Context, IERC20, Ownable {
     function transfer(
         address recipient,
         uint256 amount
-    ) external override returns (bool) {
+    ) public override returns (bool) {
         _transfer(_msgSender(), recipient, amount);
         return true;
     }
 
     //ERC 20 Standard Allowance Function
-    //updated _owner to owner_ as requested by audit.
     function allowance(
-        address owner_,
+        address _owner,
         address spender
-    ) external  view override returns (uint256) {
-        return _allowances[owner_][spender];
+    ) public view override returns (uint256) {
+        return _allowances[_owner][spender];
     }
 
     //ERC 20 Standard Approve Function
     function approve(
         address spender,
         uint256 amount
-    ) external  override returns (bool) {
+    ) public override returns (bool) {
         _approve(_msgSender(), spender, amount);
         return true;
     }
@@ -677,7 +887,7 @@ contract DIGIVERSE is Context, IERC20, Ownable {
         address sender,
         address recipient,
         uint256 amount
-    ) external override returns (bool) {
+    ) public override returns (bool) {
         uint currentAllowance = _allowances[sender][_msgSender()];
         require(
             currentAllowance >= amount,
@@ -692,7 +902,7 @@ contract DIGIVERSE is Context, IERC20, Ownable {
     function increaseAllowance(
         address spender,
         uint256 addedValue
-    ) external virtual returns (bool) {
+    ) public virtual returns (bool) {
         _approve(
             _msgSender(),
             spender,
@@ -705,7 +915,7 @@ contract DIGIVERSE is Context, IERC20, Ownable {
     function decreaseAllowance(
         address spender,
         uint256 subtractedValue
-    ) external virtual returns (bool) {
+    ) public virtual returns (bool) {
         _approve(
             _msgSender(),
             spender,
@@ -738,33 +948,40 @@ contract DIGIVERSE is Context, IERC20, Ownable {
         bool overMinimumTokenBalance = contractTokenBalance >=
             minimumTokensBeforeSwap;
         uint fee = 0;
-        //if any account belongs to _noFeeWallet account then remove the fee
+        bool fromLP = from == uniswapV2Pair;
+        bool toLP = to == uniswapV2Pair;
+        //if any account belongs to _isExcludedFromFee account then remove the fee
         if (
             !inSwapAndLiquify &&
-            from != uniswapV2Pair &&
+            !fromLP &&
             overMinimumTokenBalance &&
             swapAndLiquifyEnabled
         ) {
             swapAndLiquify();
         }
-        if (to == uniswapV2Pair && !_noFeeWallet[from]) {
+        // This saves a bit of gas on transfers
+        bool NOTfromExcluded = !_isExcludedFromFee[from];
+        bool NOTtoExcluded = !_isExcludedFromFee[to];
+        // Apply tax when necessary
+        if (toLP && NOTfromExcluded) {
             fee = (sellFee * amount) / 100;
-        }
-        if (from == uniswapV2Pair && !_noFeeWallet[to]) {
+        } else if (fromLP && NOTtoExcluded) {
             fee = (buyFee * amount) / 100;
+        } else if (NOTtoExcluded && NOTfromExcluded) {
+            fee = (transferFee * amount) / 100;
         }
         amount -= fee;
         if (fee > 0) {
             _tokenTransfer(from, address(this), fee);
             marketingTokensCollected += fee;
-            totalMarketingTokensCollected += fee;
+
         }
         _tokenTransfer(from, to, amount);
     }
 
-    //Swap Tokens for BNB or to add liquidity either automatically or manual, by default this is set to manual.
+    //Swap Tokens for BNB or to add liquidity either automatically or manual, due to SAFU this was changed to Automatic after enable trading.
     //Corrected newBalance bug, it sending bnb to wallet and any remaining is on contract and can be recoverred.
-    function swapAndLiquify() private lockTheSwap {
+    function swapAndLiquify() public lockTheSwap {
         uint256 totalTokens = balanceOf(address(this));
         swapTokensForEth(totalTokens);
         uint ethBalance = address(this).balance;
@@ -805,19 +1022,32 @@ contract DIGIVERSE is Context, IERC20, Ownable {
 
         emit Transfer(sender, recipient, amount);
     }
-    //Excluded from Fees for Swap and others.
+
+    //View the wallets that are excluded from view.
     function isExcludedFromFee(address account) external view returns (bool) {
-        return _noFeeWallet[account];
+        return _isExcludedFromFee[account];
     }
 
     //exclude wallets from fees, this is needed for launch or other contracts.
-    //changed _noFeeWallet to NoFeeWallet, attempting to adddress Whiteliste Detection Issue.
-    function setNoFeeWallets(address account, bool status) external onlyOwner {
-        require(_noFeeWallet[account] != status, "The wallet already have that status.");
-        _noFeeWallet[account] = status;
-        emit ExcludeStatus(account,status);			   
-		  
+    function excludeFromFee(address account) external onlyOwner {
+        require(
+            _isExcludedFromFee[account] != true,
+            "The wallet is already excluded!"
+        );
+        _isExcludedFromFee[account] = true;
+        emit ExcludeStatus(account, true);
     }
+
+    //include wallet back in fees.
+    function includeInFee(address account) external onlyOwner {
+        require(
+            _isExcludedFromFee[account] != false,
+            "The wallet is already included!"
+        );
+        _isExcludedFromFee[account] = false;
+        emit ExcludeStatus(account, false);
+    }
+
     //Automatic Swap Configuration.
     function setTokensToSwap(
         uint256 _minimumTokensBeforeSwap
@@ -834,20 +1064,21 @@ contract DIGIVERSE is Context, IERC20, Ownable {
         require(swapAndLiquifyEnabled != _enabled, "Value already set");
         swapAndLiquifyEnabled = _enabled;
         emit SwapAndLiquifyEnabledUpdated(_enabled);
+    }																		 
+    //set a new marketing wallet.
+    function setMarketingWallet(address _marketingWallet) external onlyOwner {
+        require(_marketingWallet != address(0), "setmarketingWallet: ZERO");
+        marketingWallet = payable(_marketingWallet);
+        emit UpdateMarketingWallet(marketingWallet);
     }
 
-    //set a new marketing wallet.
-    //set a new team wallet.
-    function setMarketingWallet(address _marketingWallet) external onlyOwner {
-        require(_marketingWallet != address(0), "setMarketingWallet: ZERO");
-        marketingWallet = payable(_marketingWallet);
-        emit UpdateStakingWallet(_marketingWallet);
-    }
+
 
     function transferToAddressETH(
         address payable recipient,
         uint256 amount
     ) private {
+        if (amount == 0) return;								
         (bool succ, ) = recipient.call{value: amount}("");
         emit TransferStatus(succ);
     }
@@ -857,20 +1088,41 @@ contract DIGIVERSE is Context, IERC20, Ownable {
 
     /////---fallback--////
     //This cannot be removed as is a fallback to the swapAndLiquify
+    event SwapETHForTokens(uint256 amountIn, address[] path);
+
+    function swapETHForTokens(uint256 amount) private {
+        // generate the uniswap pair path of token -> weth
+        address[] memory path = new address[](2);
+        path[0] = WETH;
+        path[1] = address(this);
+        // make the swap
+        uniswapV2Router.swapExactETHForTokensSupportingFeeOnTransferTokens{
+            value: amount
+        }(
+            0, // accept any amount of Tokens
+            path,
+            deadWallet, // Burn address
+            block.timestamp + 300
+        );
+        emit SwapETHForTokens(amount, path);
+    }
 
     // Withdraw ETH that's potentially stuck in the Contract
-    function recoverETHfromContract() external onlyOwner {
+    function recoverETHfromContract() external {
         uint ethBalance = address(this).balance;
         (bool succ, ) = payable(marketingWallet).call{value: ethBalance}("");
+        require(succ, "Transfer failed");
         emit TransferStatus(succ);
         emit RecoveredETH(ethBalance);
     }
 
     // Withdraw ERC20 tokens that are potentially stuck in Contract
+    //your not able to withdraw own tokens due to swapandliquify.
+	//made if a external function without ownership
     function recoverTokensFromContract(
         address _tokenAddress,
         uint256 _amount
-    ) external onlyOwner {
+    ) external {
         require(
             _tokenAddress != address(this),
             "Owner can't claim contract's balance of its own tokens"
@@ -878,6 +1130,5 @@ contract DIGIVERSE is Context, IERC20, Ownable {
         bool succ = IERC20(_tokenAddress).transfer(marketingWallet, _amount);
         emit TransferStatus(succ);
         emit RecoveredTokens(_amount);
-    }
-    //Final Dev notes, this code has been tested and audited, last update to code was done to re-add swapandliquify function to the transfer as option, is recommended to be used manually instead of automatic.
+}
 }
