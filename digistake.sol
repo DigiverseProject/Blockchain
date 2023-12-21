@@ -274,7 +274,13 @@ contract DigiStake is IERC20Staking {
         }
         return (_earned);
     }
-    
+
+    // Function to return the total rewards available in the pool
+    function getTotalPoolRewards() public view returns (uint256) {
+        uint256 totalsPools = IERC20(stakingToken).balanceOf(address(this));
+        return totalsPools - totalStaked;
+    }
+   
     // function for set enable or disable for specific stake plan
     function setStakeConclude(uint256 _stakingId, bool _conclude) external onlyOwner {
         plans[_stakingId].conclude = _conclude;
