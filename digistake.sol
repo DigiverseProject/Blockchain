@@ -42,7 +42,7 @@ abstract contract IERC20Staking is ReentrancyGuard, Ownable {
     function unstake(uint256 _stakingId, uint256 _amount) public virtual;
     function earnedToken(uint256 _stakingId, address account) public virtual view returns (uint256);
     function stakeData(uint256 _stakingId, address account) public virtual view returns (Staking[] memory);
-    function claimEarned(uint256 _stakingId) public virtual;
+    function claimEarned(uint256 _stakingId, uint256 _amount) public virtual;
 }
 
 // Contract implementing staking functionalities
@@ -140,37 +140,46 @@ contract DigiStake is IERC20Staking {
         (_stakedAmount, _canWithdraw) = canWithdrawAmount(_stakingId, msg.sender);
         require(_stakedAmount >= _amount, "Insufficient staked amount");
 
-        uint256 amount = _amount;
-        uint256 _earned = 0;
-        uint256 _penalty = 0;
-        
+        uint256 amountToWithdraw = _amount;
+        uint256 totalPenalty = 0;
+        uint256 totalEarned = 0;
+
+        // First pass: Process stakings without penalty
         uint256 stakesCount = stakes[_stakingId][msg.sender].length;
-        for (uint256 i = 0; i < stakesCount; ++i) {
+        for (uint256 i = 0; i < stakesCount && amountToWithdraw > 0; ++i) {
             Staking storage _staking = stakes[_stakingId][msg.sender][i];
-            if (block.timestamp >= _staking.endstakeAt) { 
-                uint256 withdrawAmount = amount >= _staking.amount ? _staking.amount : amount;
-                _earned = _earned + calculateEarned(withdrawAmount, _staking.lastClaim, plan.apr);
-                _staking.totalClaim += _earned;
-                _staking.amount = _staking.amount - withdrawAmount;
-                amount = amount - withdrawAmount;
-            } else { 
-                uint256 penaltyAmount = amount >= _staking.amount ? _staking.amount : amount;
-                _penalty = _penalty + calculatePenalty(penaltyAmount, plan.earlyPenalty);
-                _earned = _earned + calculateEarned(penaltyAmount, _staking.lastClaim, plan.apr);
-                _staking.totalClaim += _earned;
-                _staking.amount = _staking.amount - penaltyAmount;
-                amount = amount - penaltyAmount;
-                break; 
+            if (block.timestamp >= _staking.endstakeAt) {
+                uint256 withdrawableAmount = (_staking.amount <= amountToWithdraw) ? _staking.amount : amountToWithdraw;
+                amountToWithdraw -= withdrawableAmount;
+                totalEarned += calculateEarned(withdrawableAmount, _staking.lastClaim, plan.apr);
+                _staking.amount -= withdrawableAmount;
+                _staking.lastClaim = block.timestamp;
             }
-            _staking.lastClaim = block.timestamp; //!important, dont remove this line
         }
 
-        if (_amount > 0) {
-            IERC20(stakingToken).safeTransfer(msg.sender, _amount - _penalty);
+        // Second pass: Process stakings with penalty
+        for (uint256 i = 0; i < stakesCount && amountToWithdraw > 0; ++i) {
+            Staking storage _staking = stakes[_stakingId][msg.sender][i];
+            if (block.timestamp < _staking.endstakeAt && _staking.amount > 0) {
+                uint256 withdrawableAmount = (_staking.amount <= amountToWithdraw) ? _staking.amount : amountToWithdraw;
+                uint256 penaltyAmount = calculatePenalty(withdrawableAmount, plan.earlyPenalty);
+                totalPenalty += penaltyAmount;
+                amountToWithdraw -= withdrawableAmount;
+                totalEarned += calculateEarned(withdrawableAmount, _staking.lastClaim, plan.apr);
+                _staking.amount -= withdrawableAmount;
+                _staking.lastClaim = block.timestamp;
+            }
         }
-        if (_earned > 0) {
-            IERC20(stakingToken).safeTransfer(msg.sender, _earned);
-            updateReferralEarnings(_earned);
+
+        require(amountToWithdraw == 0, "Requested amount too high");
+
+        uint256 netAmount = _amount - totalPenalty;
+        if (netAmount > 0) {
+            IERC20(stakingToken).safeTransfer(msg.sender, netAmount);
+        }
+        if (totalEarned > 0) {
+            IERC20(stakingToken).safeTransfer(msg.sender, totalEarned);
+            updateReferralEarnings(totalEarned);
         }
 
         plans[_stakingId].overallStaked -= _amount;
@@ -182,23 +191,36 @@ contract DigiStake is IERC20Staking {
     }
 
     // Function to claim earned rewards from staking
-    function claimEarned(uint256 _stakingId) public nonReentrant checkPools override {
-        uint256 _earned = 0;
+    function claimEarned(uint256 _stakingId, uint256 _eAmount) public nonReentrant checkPools override {
+        require(_eAmount > 0, "Requested claim amount must be greater than zero");
+
+        uint256 _totalEarned = 0;
         Plan storage plan = plans[_stakingId];
 
+        // Calculate total earned rewards
         for (uint256 i = 0; i < stakes[_stakingId][msg.sender].length; ++i) {
             Staking storage _staking = stakes[_stakingId][msg.sender][i];
-            _earned = _earned + calculateEarned(_staking.amount, _staking.lastClaim, plan.apr);
-            _staking.lastClaim = block.timestamp; //!important, dont remove this line
-            _staking.totalClaim += _earned;
+            _totalEarned += calculateEarned(_staking.amount, _staking.lastClaim, plan.apr);
         }
 
-        require(_earned > 0, "There is no amount to claim");
-        IERC20(stakingToken).safeTransfer(msg.sender, _earned);
+        require(_totalEarned >= _eAmount, "Not enough earned rewards to claim the requested amount");
 
-        updateReferralEarnings(_earned);
+        // Update staking records
+        for (uint256 i = 0; i < stakes[_stakingId][msg.sender].length; ++i) {
+            Staking storage _staking = stakes[_stakingId][msg.sender][i];
+            uint256 _earned = calculateEarned(_staking.amount, _staking.lastClaim, plan.apr);
 
-        emit Claim(msg.sender, _earned, _stakingId);
+            // Calculate the proportion of the requested amount to claim from each staking
+            uint256 _claimAmount = (_eAmount * _earned) / _totalEarned;
+            _eAmount -= _claimAmount;
+            _staking.totalClaim += _claimAmount;
+            _staking.lastClaim = block.timestamp; // Update last claim time
+        }
+
+        IERC20(stakingToken).safeTransfer(msg.sender, _eAmount);
+        updateReferralEarnings(_eAmount);
+
+        emit Claim(msg.sender, _eAmount, _stakingId);
     }
 
     // Function to claim earning rewards from invite
@@ -245,14 +267,20 @@ contract DigiStake is IERC20Staking {
     function earnedToken(uint256 _stakingId, address _account) public override view returns (uint256) {
         uint256 _earned = 0;
         Plan storage plan = plans[_stakingId];
-        
+
         for (uint256 i = 0; i < stakes[_stakingId][_account].length; ++i) {
             Staking storage _staking = stakes[_stakingId][_account][i];
             _earned = _earned + calculateEarned(_staking.amount, _staking.lastClaim, plan.apr);
         }
         return (_earned);
     }
-    
+
+    // Function to return the total rewards available in the pool
+    function getTotalPoolRewards() public view returns (uint256) {
+        uint256 totalsPools = IERC20(stakingToken).balanceOf(address(this));
+        return totalsPools - totalStaked;
+    }
+   
     // function for set enable or disable for specific stake plan
     function setStakeConclude(uint256 _stakingId, bool _conclude) external onlyOwner {
         plans[_stakingId].conclude = _conclude;
