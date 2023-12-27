@@ -205,16 +205,26 @@ contract DigiStake is IERC20Staking {
 
         require(_totalEarned >= _eAmount, "Not enough earned rewards to claim the requested amount");
 
+        uint256 remainingClaimAmount = _eAmount;
+
         // Update staking records
         for (uint256 i = 0; i < stakes[_stakingId][msg.sender].length; ++i) {
             Staking storage _staking = stakes[_stakingId][msg.sender][i];
             uint256 _earned = calculateEarned(_staking.amount, _staking.lastClaim, plan.apr);
 
-            // Calculate the proportion of the requested amount to claim from each staking
-            uint256 _claimAmount = (_eAmount * _earned) / _totalEarned;
-            _eAmount -= _claimAmount;
-            _staking.totalClaim += _claimAmount;
-            _staking.lastClaim = block.timestamp; // Update last claim time
+            // Update last claim time regardless of the amount claimed
+            _staking.lastClaim = block.timestamp;
+
+            if (remainingClaimAmount > 0 && _earned > 0) {
+                // Calculate the proportion of the requested amount to claim from each staking
+                uint256 _claimAmount = (_earned * remainingClaimAmount) / _totalEarned;
+                _claimAmount = (_claimAmount > remainingClaimAmount) ? remainingClaimAmount : _claimAmount;
+                remainingClaimAmount -= _claimAmount;
+                _staking.totalClaim += _claimAmount;
+
+                // Adjust _totalEarned to ensure the proportions remain correct for subsequent iterations
+                _totalEarned -= _earned;
+            }
         }
 
         IERC20(stakingToken).safeTransfer(msg.sender, _eAmount);
@@ -311,7 +321,7 @@ contract DigiStake is IERC20Staking {
     // Internal function to update earnings based on referrals
     function updateReferralEarnings(uint256 amount) internal {
         address currentUpline = user[msg.sender].invitedBy;
-        for (uint256 i = 0; i < refPercent.length; i++) {
+        for (uint256 i = 0; i < refPercent.length; ++i) {
             uint256 bonusInvite = (amount * refPercent[i]) / 100;
             user[currentUpline].totalEarning += bonusInvite;
             user[currentUpline].claimableEarning += bonusInvite;
