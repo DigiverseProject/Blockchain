@@ -92,6 +92,9 @@ contract DigiStake is IERC20Staking {
 
                 address currentUpline0 = _referrer; 
                 for (uint i = 0; i < refPercent.length; ++i) {
+                    if (currentUpline0 == address(0)) {
+                        break; // Stop processing if the upline is a non-existent referrer
+                    }                    
                     user[currentUpline0].totalDownline += 1;
                     currentUpline0 = user[currentUpline0].invitedBy; // Move to next referrer
                 }               
@@ -133,7 +136,7 @@ contract DigiStake is IERC20Staking {
     }
 
     // Function allowing users to withdraw their stakes
-    function unstake(uint256 _stakingId, uint256 _amount) public nonReentrant checkPools override {
+    function unstake(uint256 _stakingId, uint256 _amount) public nonReentrant checkPools(_amount) override {
         uint256 _stakedAmount;
         uint256 _canWithdraw;
         Plan storage plan = plans[_stakingId];
@@ -191,14 +194,15 @@ contract DigiStake is IERC20Staking {
     }
 
     // Function to claim earned rewards from staking
-    function claimEarned(uint256 _stakingId, uint256 _eAmount) public nonReentrant checkPools override {
+    function claimEarned(uint256 _stakingId, uint256 _eAmount) public nonReentrant checkPools(_eAmount) override {
         require(_eAmount > 0, "Requested claim amount must be greater than zero");
 
         uint256 _totalEarned = 0;
         Plan storage plan = plans[_stakingId];
+        uint256 stakesCount = stakes[_stakingId][msg.sender].length;
 
         // Calculate total earned rewards
-        for (uint256 i = 0; i < stakes[_stakingId][msg.sender].length; ++i) {
+        for (uint256 i = 0; i < stakesCount; ++i) {
             Staking storage _staking = stakes[_stakingId][msg.sender][i];
             _totalEarned += calculateEarned(_staking.amount, _staking.lastClaim, plan.apr);
         }
@@ -208,7 +212,7 @@ contract DigiStake is IERC20Staking {
         uint256 remainingClaimAmount = _eAmount;
 
         // Update staking records
-        for (uint256 i = 0; i < stakes[_stakingId][msg.sender].length; ++i) {
+        for (uint256 i = 0; i < stakesCount; ++i) {
             Staking storage _staking = stakes[_stakingId][msg.sender][i];
             uint256 _earned = calculateEarned(_staking.amount, _staking.lastClaim, plan.apr);
 
@@ -234,7 +238,7 @@ contract DigiStake is IERC20Staking {
     }
 
     // Function to claim earning rewards from invite
-    function claimReward(uint256 _ramount) external nonReentrant checkPools {
+    function claimReward(uint256 _ramount) external nonReentrant checkPools(_ramount) {
         uint256 _claimable = user[msg.sender].claimableEarning;
 
         require(_ramount > 0, "Cannot claim zero");
@@ -322,6 +326,9 @@ contract DigiStake is IERC20Staking {
     function updateReferralEarnings(uint256 amount) internal {
         address currentUpline = user[msg.sender].invitedBy;
         for (uint256 i = 0; i < refPercent.length; ++i) {
+            if (currentUpline == address(0)) {
+                break; // Stop processing if the upline is a non-existent referrer
+            }
             uint256 bonusInvite = (amount * refPercent[i]) / 100;
             user[currentUpline].totalEarning += bonusInvite;
             user[currentUpline].claimableEarning += bonusInvite;
@@ -340,9 +347,12 @@ contract DigiStake is IERC20Staking {
     }
 
     //Security for claim earning, Cannot claim staked balance
-    modifier checkPools() {
+    modifier checkPools(uint256 maxPossibleDeduction) {
         uint256 totalsPools = IERC20(stakingToken).balanceOf(address(this));
-        require(totalsPools > totalStaked, "Insufficient balance pools need to refill token into contract");
+        require(totalsPools > totalStaked, "Insufficient balance pools: need to refill token into contract");
+
+        // Check if the balance remains sufficient after the potential action
+        require(totalsPools - maxPossibleDeduction >= totalStaked, "Action may lead to insufficient balance");
         _;
     }
 
