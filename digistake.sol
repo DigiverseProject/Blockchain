@@ -139,7 +139,7 @@ contract DigiStake is IERC20Staking {
     }
 
     // Function allowing users to withdraw their stakes
-    function unstake(uint256 _stakingId, uint256 _amount) public nonReentrant checkPools(_amount) override {
+    function unstake(uint256 _stakingId, uint256 _amount) public nonReentrant override {
         uint256 _stakedAmount;
         uint256 _canWithdraw;
         Plan storage plan = plans[_stakingId];
@@ -300,16 +300,17 @@ contract DigiStake is IERC20Staking {
 
     //--------------- Private Function ---------------//
 
-    // private function for remove empty stakes
+    // Private function to remove empty stakes
     function removeEmptyStakes(uint256 _stakingId, address _user) private {
         Staking[] storage userStakes = stakes[_stakingId][_user];
         uint256 i = 0;
         while (i < userStakes.length) {
-            if (userStakes[i].amount == 0) {
+            // Check if both amount and unclaimed are zero
+            if (userStakes[i].amount == 0 && userStakes[i].unclaimed == 0) {
                 if (i != userStakes.length - 1) {
                     userStakes[i] = userStakes[userStakes.length - 1];
                 }
-                userStakes.pop();
+                userStakes.pop(); // Remove the last element
             } else {
                 ++i; // Increment the index only if an element is not removed
             }
