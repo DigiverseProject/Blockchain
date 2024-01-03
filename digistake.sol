@@ -212,8 +212,10 @@ contract DigiStake is IERC20Staking {
             // Adjust the claim amount and the unclaimed rewards
             _eAmount -= claimFromThisStake;
             staking.unclaimed -= claimFromThisStake;
-
             staking.totalClaim += claimFromThisStake; // Update totalClaim
+
+            // Adjust the total unclaimed amount
+            totalUnclaimed -= claimFromThisStake;
         }
 
         // Transfer the claimed amount
