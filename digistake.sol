@@ -199,6 +199,10 @@ contract DigiStake is ReentrancyGuard, Ownable {
 
             // Adjust the remaining claim amount and the unclaimed rewards
             remainingClaim -= claimFromThisStake;
+
+            // Deduct the staking's unclaimed amount from originalTotalUnclaimed
+            originalTotalUnclaimed -= staking.unclaimed;    
+
             staking.unclaimed -= claimFromThisStake;
             staking.totalClaim += claimFromThisStake; // Update totalClaim
         }
@@ -208,7 +212,7 @@ contract DigiStake is ReentrancyGuard, Ownable {
 
         // Update referral earnings and emit event
         updateReferralEarnings(_eAmount - remainingClaim);
-        
+
         emit Claim(msg.sender, _eAmount - remainingClaim, _stakingId);
     }
 
