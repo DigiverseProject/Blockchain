@@ -6,8 +6,15 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-// Interface defining the structure for staking and associated data
-abstract contract IERC20Staking is ReentrancyGuard, Ownable {
+contract DigiStake is ReentrancyGuard, Ownable {
+    using SafeERC20 for IERC20;
+
+    address public stakingToken; // Address of the staked token
+    uint256 public constant periodicTime = 365 days; // Constant representing a year in seconds
+    uint256 public planLimit = 3; // Maximum number of staking plans allowed
+    uint256 public totalStaked; // Total amount staked across all plans
+    uint256[] public refPercent; // percent for referral
+
     struct Plan {
         uint256 overallStaked; // Total staked amount in this plan
         uint256 stakesCount; // Number of stakes within this plan
@@ -17,7 +24,6 @@ abstract contract IERC20Staking is ReentrancyGuard, Ownable {
         bool conclude; // Flag to mark if the staking in this plan is concluded
     }
     
-    // Struct for individual staking information
     struct Staking {
         uint256 amount; // Amount staked
         uint256 stakeAt; // Time when staking started
@@ -27,34 +33,6 @@ abstract contract IERC20Staking is ReentrancyGuard, Ownable {
         uint256 unclaimed; // Unclaimed earned rewards
     }
 
-    // Mapping to track stakes for each user within each plan
-    mapping(uint256 => mapping(address => Staking[])) public stakes;
-    address public stakingToken; // Address of the staked token
-    mapping(uint256 => Plan) public plans; // Mapping for different staking plans
-
-    // Constructor initializing the staking token address
-    constructor(address _stakingToken) {
-        stakingToken = _stakingToken;
-    }
-
-    // Abstract functions that must be implemented by the derived contract
-    function stake(uint256 _stakingId, uint256 _amount) public virtual;
-    function canWithdrawAmount(uint256 _stakingId, address account) public virtual view returns (uint256, uint256);
-    function unstake(uint256 _stakingId, uint256 _amount) public virtual;
-    function earnedToken(uint256 _stakingId, address account) public virtual view returns (uint256);
-    function stakeData(uint256 _stakingId, address account) public virtual view returns (Staking[] memory);
-    function claimEarned(uint256 _stakingId, uint256 _amount) public virtual;
-}
-
-// Contract implementing staking functionalities
-contract DigiStake is IERC20Staking {
-    using SafeERC20 for IERC20;
-
-    uint256 public constant periodicTime = 365 days; // Constant representing a year in seconds
-    uint256 public planLimit = 3; // Maximum number of staking plans allowed
-    uint256 public totalStaked; // Total amount staked across all plans
-    uint256[] public refPercent; // percent for referral
-
     struct Users {
         bool status;
         address invitedBy;
@@ -62,12 +40,15 @@ contract DigiStake is IERC20Staking {
         uint256 totalEarning;
         uint256 claimableEarning;
     }
+
     mapping(address => Users) public user;
+    mapping(uint256 => mapping(address => Staking[])) public stakes;
+    mapping(uint256 => Plan) public plans; // Mapping for different staking plans
 
     // Constructor initializing the staking token and minimum stake amount
-    constructor(
-        address _stakingToken
-    ) IERC20Staking(_stakingToken) {
+    constructor(address _stakingToken) {
+        stakingToken = _stakingToken;
+
         // Initializing three predefined staking plans with different parameters
         plans[0].apr = 8;
         plans[0].stakeDuration = 15 days;
@@ -105,7 +86,7 @@ contract DigiStake is IERC20Staking {
     }
 
     // Staking function allowing users to stake their tokens
-    function stake(uint256 _stakingId, uint256 _amount) public nonReentrant override {
+    function stake(uint256 _stakingId, uint256 _amount) public nonReentrant {
         require(_amount > 0, "Staking Amount cannot be zero");
         require(IERC20(stakingToken).balanceOf(msg.sender) >= _amount,"Balance is not enough");
         require(_stakingId < planLimit, "Staking is unavailable");
@@ -139,7 +120,7 @@ contract DigiStake is IERC20Staking {
     }
 
     // Function allowing users to withdraw their stakes
-    function unstake(uint256 _stakingId, uint256 _amount) public nonReentrant override {
+    function unstake(uint256 _stakingId, uint256 _amount) external nonReentrant {
         uint256 _stakedAmount;
         uint256 _canWithdraw;
         Plan storage plan = plans[_stakingId];
@@ -193,38 +174,42 @@ contract DigiStake is IERC20Staking {
     }
 
     // Function to claim earned rewards from staking
-    function claimEarned(uint256 _stakingId, uint256 _eAmount) public nonReentrant checkPools(_eAmount) override {
+    function claimEarned(uint256 _stakingId, uint256 _eAmount) external nonReentrant checkPools(_eAmount) {
         require(_eAmount > 0, "Requested claim amount must be greater than zero");
 
         // Update unclaimed earnings before distributing the claim
         _updateUnclaimedEarnings(msg.sender, _stakingId);
 
-        uint256 totalUnclaimed = _getTotalUnclaimed(msg.sender, _stakingId);
-        require(totalUnclaimed >= _eAmount, "Not enough earned rewards to claim");
+        uint256 originalTotalUnclaimed = _getTotalUnclaimed(msg.sender, _stakingId);
+        require(originalTotalUnclaimed >= _eAmount, "Not enough earned rewards to claim");
 
         uint256 stakesCount = stakes[_stakingId][msg.sender].length;
-        for (uint256 i = 0; i < stakesCount && _eAmount > 0; ++i) {
+        uint256 remainingClaim = _eAmount; // Remaining amount to be claimed
+
+        for (uint256 i = 0; i < stakesCount && remainingClaim > 0; ++i) {
             Staking storage staking = stakes[_stakingId][msg.sender][i];
 
             // Calculate the proportion of the claim from this staking
-            uint256 claimFromThisStake = (staking.unclaimed * _eAmount) / totalUnclaimed;
+            uint256 claimFromThisStake = (staking.unclaimed * remainingClaim) / originalTotalUnclaimed;
 
-            // Adjust the claim amount and the unclaimed rewards
-            _eAmount -= claimFromThisStake;
+            // Ensure we do not claim more than remaining
+            if (claimFromThisStake > remainingClaim) {
+                claimFromThisStake = remainingClaim;
+            }
+
+            // Adjust the remaining claim amount and the unclaimed rewards
+            remainingClaim -= claimFromThisStake;
             staking.unclaimed -= claimFromThisStake;
             staking.totalClaim += claimFromThisStake; // Update totalClaim
-
-            // Adjust the total unclaimed amount
-            totalUnclaimed -= claimFromThisStake;
         }
 
         // Transfer the claimed amount
-        IERC20(stakingToken).safeTransfer(msg.sender, _eAmount);
+        IERC20(stakingToken).safeTransfer(msg.sender, _eAmount - remainingClaim);
 
         // Update referral earnings and emit event
-        updateReferralEarnings(_eAmount);
-
-        emit Claim(msg.sender, _eAmount, _stakingId);
+        updateReferralEarnings(_eAmount - remainingClaim);
+        
+        emit Claim(msg.sender, _eAmount - remainingClaim, _stakingId);
     }
 
     // Function to claim earning rewards from invite
@@ -244,7 +229,7 @@ contract DigiStake is IERC20Staking {
     //--------------- Public View ---------------//
 
     // public view function for get staked and withdraw data
-    function canWithdrawAmount(uint256 _stakingId, address _account) public override view returns (uint256, uint256) {
+    function canWithdrawAmount(uint256 _stakingId, address _account) public view returns (uint256, uint256) {
         uint256 _stakedAmount = 0;
         uint256 _canWithdraw = 0;
 
@@ -259,7 +244,7 @@ contract DigiStake is IERC20Staking {
     }
 
     // public view function for get stake data
-    function stakeData(uint256 _stakingId, address _account) public override view returns (Staking[] memory) {
+    function stakeData(uint256 _stakingId, address _account) public view returns (Staking[] memory) {
         Staking[] memory _stakeDatas = new Staking[](stakes[_stakingId][_account].length);
 
         for (uint256 i = 0; i < stakes[_stakingId][_account].length; ++i) {
@@ -270,7 +255,7 @@ contract DigiStake is IERC20Staking {
     }
 
     // public view function for get earned token
-    function earnedToken(uint256 _stakingId, address _account) public override view returns (uint256) {
+    function earnedToken(uint256 _stakingId, address _account) public view returns (uint256) {
         uint256 _earned = 0;
         Plan storage plan = plans[_stakingId];
 
