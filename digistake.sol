@@ -248,30 +248,37 @@ contract DigiStake is ReentrancyGuard, Ownable {
     }
 
     // public view function for get stake data
-    function stakeData(uint256 _stakingId, address _account) public view returns (Staking[] memory) {
+    function stakeData(uint256 _stakingId, address _account) external view returns (Staking[] memory) {
         Staking[] memory _stakeDatas = new Staking[](stakes[_stakingId][_account].length);
 
         for (uint256 i = 0; i < stakes[_stakingId][_account].length; ++i) {
             Staking storage _staking = stakes[_stakingId][_account][i];
             _stakeDatas[i] = _staking;
         }
+
         return (_stakeDatas);
     }
 
     // public view function for get earned token
-    function earnedToken(uint256 _stakingId, address _account) public view returns (uint256) {
-        uint256 _earned = 0;
-        Plan storage plan = plans[_stakingId];
+    function earnedToken(uint256 _stakingId, address account) external view returns (uint256) {
+        uint256 totalEarned = 0;
+        Staking[] storage userStakes = stakes[_stakingId][account];
 
-        for (uint256 i = 0; i < stakes[_stakingId][_account].length; ++i) {
-            Staking storage _staking = stakes[_stakingId][_account][i];
-            _earned = _earned + calculateEarned(_staking.amount, _staking.lastClaim, plan.apr);
+        for (uint256 i = 0; i < userStakes.length; ++i) {
+            Staking storage staking = userStakes[i];
+
+            // Calculate earnings since last claim
+            uint256 earnedSinceLastClaim = calculateEarned(staking.amount, staking.lastClaim, plans[_stakingId].apr);
+
+            // Add to unclaimed rewards
+            totalEarned += (staking.unclaimed + earnedSinceLastClaim);
         }
-        return (_earned);
+
+        return totalEarned;
     }
 
     // Function to return the total rewards available in the pool
-    function getTotalPoolRewards() public view returns (uint256) {
+    function getTotalPoolRewards() external view returns (uint256) {
         uint256 totalsPools = IERC20(stakingToken).balanceOf(address(this));
         return totalsPools - totalStaked;
     }
